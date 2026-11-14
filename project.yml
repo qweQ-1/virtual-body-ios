@@ -1,17 +1,21 @@
 # project.yml
 # 虚拟身体（VirtualBody）—— XcodeGen 工程定义
 #
-# 用法（Mac）：
+# 用法（Mac 本机）：
 #   brew install xcodegen
-#   cd ios && xcodegen generate
-#   open VirtualBody.xcodeproj
+#   xcodegen generate && open VirtualBody.xcodeproj
+#
+# CI：由 .github/workflows/{build-test,unsigned-ipa}.yml 负责
+#     （走 wenjinliuu/ios-ci-workflows，配置在 .ios-ci.yml），本地不需要 Mac。
 #
 # 设计要点：
 #   - 手写 Info.plist（GENERATE_INFOPLIST_FILE=NO），不依赖 Xcode 自动生成；
 #   - Resources/WebApp 以「folder reference（type: folder）」进 bundle，
-#     保证 WebApp/index.html 的目录结构原样保留，前端可用 rsync 直接覆盖；
+#     保证 WebApp/index.html 的目录结构原样保留，前端可整目录替换；
 #   - 零第三方依赖：没有 SPM / Podfile / Package.resolved；
-#   - 最低 iOS 16.0，Swift 5.9，并发检查保持 minimal（Swift 5 语言模式默认）。
+#   - 最低 iOS 16.0，Swift 5.9，并发检查保持 minimal（Swift 5 语言模式默认）；
+#   - .xcodeproj 由 XcodeGen 生成、不进仓库，所以测试计划用 Fast.xctestplan +
+#     Scripts/sync-test-plans.py 在生成后回填 target ID。
 
 name: VirtualBody
 
@@ -37,14 +41,14 @@ settings:
     CLANG_ENABLE_MODULES: YES
 
 targets:
+  # ---------------------------------------------------------------- 主 App
   VirtualBody:
     type: application
     platform: iOS
     deploymentTarget: "16.0"
     sources:
-      # 全部 Swift 源码
       - path: Sources
-      # Info.plist 只用于 INFOPLIST_FILE，不进任何 build phase（buildPhase: none）
+      # Info.plist 只用于 INFOPLIST_FILE，不进任何 build phase
       - path: Resources/Info.plist
         buildPhase: none
       # 前端目录：必须保留目录结构 —— folder reference
@@ -62,11 +66,8 @@ targets:
         SWIFT_VERSION: "5.9"
         CODE_SIGN_STYLE: Automatic
         SWIFT_EMIT_LOC_STRINGS: NO
-        # DEVELOPMENT_TEAM 故意留空：真机出包时用命令行传入
-        #   xcodebuild ... DEVELOPMENT_TEAM=XXXXXXXXXX
-        #
-        # 注意：本工程没有 Assets.xcassets / AppIcon。
-        # 本地真机安装不受影响；上架 App Store 前需要自行补一个 AppIcon 资源目录。
+        # DEVELOPMENT_TEAM 故意留空：真机签名出包时用命令行传入。
+        # 本工程没有 Assets.xcassets / AppIcon：本地安装不受影响，上架需自行补。
       configs:
         Debug:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
@@ -74,15 +75,38 @@ targets:
         Release:
           SWIFT_OPTIMIZATION_LEVEL: "-O"
 
+  # ---------------------------------------------------------------- 单元测试
+  # 只测纯逻辑（地址规整、桥接指令解析、服务端 JSON 解码），不依赖模拟器 UI，
+  # 所以跑得快、也不会因为动画时序变成 flaky。
+  VirtualBodyTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: Tests
+    dependencies:
+      - target: VirtualBody
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.virtualbody.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.9"
+        TARGETED_DEVICE_FAMILY: "1,2"
+
 schemes:
   VirtualBody:
     build:
       targets:
         VirtualBody: all
+        VirtualBodyTests: [test]
     run:
       config: Debug
     test:
       config: Debug
+      # 由 Scripts/sync-test-plans.py 在 xcodegen generate 之后回填 target ID
+      testPlans:
+        - path: Fast.xctestplan
+          defaultPlan: true
     profile:
       config: Release
     analyze:

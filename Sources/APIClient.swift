@@ -169,7 +169,8 @@ final class APIClient: @unchecked Sendable {
         if !lower.hasPrefix("http://") && !lower.hasPrefix("https://") {
             text = "https://" + text
         }
-        while text.hasSuffix("/") {
+        // 去掉结尾斜杠，但别把 "https://" 剥成 "https:"（剥空 scheme 会变成非法 URL）
+        while text.hasSuffix("/") && !text.hasSuffix("://") {
             text.removeLast()
         }
         return text

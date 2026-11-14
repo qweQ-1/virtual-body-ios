@@ -1,0 +1,30 @@
+name: Build & Test
+
+# 编译 + 跑单元测试（逻辑测试，不需要模拟器 UI），报告在 run 页面的 summary 里。
+# 接入说明见 ios-ci-workflows 的 docs/config.md；配置在 .ios-ci.yml。
+
+on:
+  push:
+    paths-ignore: ['**/*.md', 'docs/**']
+  pull_request:
+    paths-ignore: ['**/*.md', 'docs/**']
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 跑哪些测试（fast 快线 / ui 慢线 / full 全部）
+        type: choice
+        options: [fast, full]
+        default: fast
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-test-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    uses: wenjinliuu/ios-ci-workflows/.github/workflows/build-test.yml@df71d6096d6d39ea799179cb2635703548b07ae0 # v1.1.0
+    with:
+      suite: ${{ inputs.suite || '' }}

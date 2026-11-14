@@ -1,0 +1,28 @@
+# VirtualBody 的 CI 配置：所有工作流都从这里读设置，入口文件里只剩 uses: 和 secrets:。
+# 完整说明见 ios-ci-workflows 的 docs/config.md。
+
+# 工程（必填：project、scheme、bundle_id）
+workdir: .
+project: VirtualBody.xcodeproj
+scheme: VirtualBody
+bundle_id: com.virtualbody.app
+display_name: '虚拟身体'
+generate_command: xcodegen generate && python3 Scripts/sync-test-plans.py
+sync_command: 'true'
+
+# 工具链：与本账号其它仓库保持一致（github 的 macos runner 镜像上可用）
+toolchain:
+  xcode: '26.6'
+  simulator: iPhone 17 Pro
+  ios: '26.4'
+
+# 这里只有逻辑测试（地址规整、桥接解析、模型解码），没有 UI 测试，
+# 所以只配一份 test_plan，不拆快线/慢线、不配 ui_test_target。
+build_test:
+  test_plan: Fast
+  accessibility_audit: warn
+
+# 本 App 不做 iCloud，也不需要发版；TestFlight 留空以便以后要发时再打开。
+testflight:
+  entitlement_mode: none
+  acceptance_issue: false

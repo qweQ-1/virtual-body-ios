@@ -80,51 +80,58 @@ final class ScriptBridge: NSObject, WKScriptMessageHandler {
             print("[VB bridge] 忽略非字典消息")
             return
         }
+        guard let event = ScriptBridge.parse(body: body) else { return }
+        dispatch(event)
+    }
+
+    /// 把网页发来的一帧解析成事件。抽成静态方法是为了能单测（见 Tests/ScriptBridgeTests.swift）。
+    /// 返回 nil 表示这条消息应当被忽略（不是字典、没有 cmd、或者缺少必填字段）。
+    static func parse(body: [String: Any]) -> Event? {
         guard let rawCmd = body["cmd"] as? String else {
             print("[VB bridge] 忽略缺少 cmd 的消息")
-            return
+            return nil
         }
         let cmd = rawCmd.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !cmd.isEmpty else { return }
+        guard !cmd.isEmpty else { return nil }
 
         switch cmd {
         case "haptic":
             let style = (body["style"] as? String) ?? "light"
-            dispatch(.haptic(style: style))
+            return .haptic(style: style)
 
         case "speak":
-            let text = stringValue(body["text"])
+            let text = ScriptBridge.stringValue(body["text"])
             let lang = (body["lang"] as? String) ?? "zh-CN"
             if text.isEmpty {
                 print("[VB bridge] speak 指令缺少 text，忽略")
-            } else {
-                dispatch(.speak(text: text, lang: lang))
+                return nil
             }
+            return .speak(text: text, lang: lang)
 
         case "stop_speak", "stopspeak", "stop":
-            dispatch(.stopSpeak)
+            return .stopSpeak
 
         case "unbind":
-            dispatch(.unbind)
+            return .unbind
 
         case "open_settings", "opensettings", "settings":
-            dispatch(.openSettings)
+            return .openSettings
 
         case "log":
-            dispatch(.log(message: stringValue(body["message"])))
+            return .log(message: ScriptBridge.stringValue(body["message"]))
 
         case "status":
-            let text = stringValue(body["text"])
+            let text = ScriptBridge.stringValue(body["text"])
             let level = (body["level"] as? String) ?? "ok"
             if text.isEmpty {
                 print("[VB bridge] status 指令缺少 text，忽略")
-            } else {
-                dispatch(.status(text: text, level: level))
+                return nil
             }
+            return .status(text: text, level: level)
 
         default:
             // 未知指令：交给上层记录并忽略
-            dispatch(.unknown(cmd: cmd))
+            return .unknown(cmd: cmd)
         }
     }
 
@@ -141,7 +148,7 @@ final class ScriptBridge: NSObject, WKScriptMessageHandler {
     }
 
     /// 宽容取值：字符串 / 数字都能变成 String
-    private func stringValue(_ any: Any?) -> String {
+    static func stringValue(_ any: Any?) -> String {
         if let text = any as? String { return text }
         if let number = any as? NSNumber { return number.stringValue }
         return ""
