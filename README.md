@@ -3,7 +3,7 @@
 把 AstrBot 机器人变成一个**住在手机里的虚拟生命**：可以用手指真的摸到它（摸头、抱抱、挠痒、投喂、抛起来），
 而且**虚 ↔ 现 双向互通** —— 你在 App 里摸它，QQ 会收到它的反应；你在 QQ 里说的话，它会在这个 App 里开口说出来。
 
-> 服务端是另一个仓库的 AstrBot 插件：**`astrbot_plugin_virtual_body`**（本仓库的界面就是它托管的同一份前端）。
+> 服务端是另一个仓库的 AstrBot 插件：**[qweQ-1/astrbot_plugin_virtual_body](https://github.com/qweQ-1/astrbot_plugin_virtual_body)**（本仓库的界面就是它托管的同一份前端）。
 
 ---
 
@@ -12,6 +12,7 @@
 | 方式 | 需要什么 | 优点 |
 |---|---|---|
 | **① PWA（推荐先试）** | 只要 iPhone + Safari | 30 秒就能玩。打开服务端地址 → 填绑定码 → 「添加到主屏幕」，图标和全屏体验跟原生一样 |
+| — | — | 服务端地址由插件提供，形如 `https://你的域名/pet/` |
 | **② 原生 ipa** | 有 Mac，或只用 GitHub Actions | 有原生触觉反馈（CoreHaptics）、原生 TTS 朗读、Keychain 保存 token |
 
 ### ① PWA：立刻可用
