@@ -27,6 +27,9 @@ final class WebBridgeModel: ObservableObject, @unchecked Sendable {
     var fileURL: URL?
     weak var webView: WKWebView?
 
+    /// 页面首次（或重新）加载完成时回调，由 MainView 在 onAppear 里赋值。
+    var onPageLoaded: (() -> Void)?
+
     /// 加载（首次进入 / 重试都走它）
     func loadIfNeeded() {
         guard let webView = webView else { return }
@@ -133,6 +136,8 @@ struct WebViewContainer: UIViewRepresentable {
         let model: WebBridgeModel
         weak var webView: WKWebView?
         var bridge: ScriptBridge?
+        /// 本页所属服务器，用于判断「用户点的链接」是否要外抛给 Safari
+        var server: String = ""
 
         init(model: WebBridgeModel) {
             self.model = model
