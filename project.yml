@@ -1,0 +1,91 @@
+# project.yml
+# 虚拟身体（VirtualBody）—— XcodeGen 工程定义
+#
+# 用法（Mac）：
+#   brew install xcodegen
+#   cd ios && xcodegen generate
+#   open VirtualBody.xcodeproj
+#
+# 设计要点：
+#   - 手写 Info.plist（GENERATE_INFOPLIST_FILE=NO），不依赖 Xcode 自动生成；
+#   - Resources/WebApp 以「folder reference（type: folder）」进 bundle，
+#     保证 WebApp/index.html 的目录结构原样保留，前端可用 rsync 直接覆盖；
+#   - 零第三方依赖：没有 SPM / Podfile / Package.resolved；
+#   - 最低 iOS 16.0，Swift 5.9，并发检查保持 minimal（Swift 5 语言模式默认）。
+
+name: VirtualBody
+
+options:
+  bundleIdPrefix: com.virtualbody
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+  groupSortPosition: top
+  xcodeVersion: "15.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_STRICT_CONCURRENCY: minimal
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    ALWAYS_SEARCH_USER_PATHS: NO
+    CLANG_ENABLE_MODULES: YES
+
+targets:
+  VirtualBody:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      # 全部 Swift 源码
+      - path: Sources
+      # Info.plist 只用于 INFOPLIST_FILE，不进任何 build phase（buildPhase: none）
+      - path: Resources/Info.plist
+        buildPhase: none
+      # 前端目录：必须保留目录结构 —— folder reference
+      - path: Resources/WebApp
+        type: folder
+    settings:
+      base:
+        PRODUCT_NAME: VirtualBody
+        PRODUCT_BUNDLE_IDENTIFIER: com.virtualbody.app
+        INFOPLIST_FILE: Resources/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1,2"
+        MARKETING_VERSION: "1.0.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.9"
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_EMIT_LOC_STRINGS: NO
+        # DEVELOPMENT_TEAM 故意留空：真机出包时用命令行传入
+        #   xcodebuild ... DEVELOPMENT_TEAM=XXXXXXXXXX
+        #
+        # 注意：本工程没有 Assets.xcassets / AppIcon。
+        # 本地真机安装不受影响；上架 App Store 前需要自行补一个 AppIcon 资源目录。
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+          SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+        Release:
+          SWIFT_OPTIMIZATION_LEVEL: "-O"
+
+schemes:
+  VirtualBody:
+    build:
+      targets:
+        VirtualBody: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

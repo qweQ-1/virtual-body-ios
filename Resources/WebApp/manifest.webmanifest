@@ -1,0 +1,14 @@
+{
+  "name": "虚拟身体 · 虚现互通",
+  "short_name": "虚拟身体",
+  "description": "能被手指触摸、并通过 QQ 双向互通的虚拟角色",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#12101c",
+  "theme_color": "#12101c",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

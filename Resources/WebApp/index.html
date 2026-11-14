@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="虚拟身体">
+<meta name="theme-color" content="#12101c">
+<title>虚拟身体 · 虚现互通</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ============ 绑定门禁：进去前必须绑定 QQ ============ -->
+  <section id="gate" class="gate">
+    <div class="gate-card">
+      <div class="gate-logo" id="gateLogo"></div>
+      <h1>虚拟身体</h1>
+      <p class="gate-sub">虚 ↔ 现 双向互通</p>
+      <ol class="gate-steps">
+        <li>在 QQ 里给机器人发送 <code>虚现 绑定码</code></li>
+        <li>把机器人回你的 <b>6 位数字</b> 填到下面</li>
+        <li>进去以后，摸它一下 —— QQ 会收到它的反应</li>
+      </ol>
+      <label class="field">
+        <span>服务器地址</span>
+        <input id="gateServer" type="url" inputmode="url" autocomplete="off" spellcheck="false">
+      </label>
+      <label class="field">
+        <span>绑定码</span>
+        <input id="gateCode" type="tel" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code">
+      </label>
+      <label class="field">
+        <span>设备名</span>
+        <input id="gateDevice" type="text" maxlength="24" autocomplete="off">
+      </label>
+      <button id="gateBtn" class="primary">绑定并进入</button>
+      <div id="gateMsg" class="gate-msg"></div>
+      <p class="gate-tip">还没有服务端？把 <code>astrbot_plugin_virtual_body</code> 装到 AstrBot 上即可。</p>
+    </div>
+  </section>
+
+  <!-- ============ 主界面 ============ -->
+  <main id="stage" class="stage" hidden>
+    <div id="room" class="room room-day">
+      <div class="room-deco" id="roomDeco"></div>
+    </div>
+
+    <header class="hud">
+      <div class="hud-left">
+        <div class="hud-name"><span id="hudName">小虚</span><i id="hudLevel">Lv.1</i></div>
+        <div class="hud-exp"><i id="hudExp"></i></div>
+      </div>
+      <div class="hud-right">
+        <span id="conn" class="conn conn-off" title="连接状态">●</span>
+        <button id="btnSettings" class="icon-btn" aria-label="设置">⚙︎</button>
+      </div>
+    </header>
+
+    <div class="bars" id="bars"></div>
+
+    <canvas id="cv"></canvas>
+
+    <div id="bubble" class="bubble" hidden><span></span></div>
+    <div id="hint" class="hint">摸它一下试试 · 长按是揉搓 · 往上甩是抛起来</div>
+
+    <div id="toastWrap" class="toast-wrap"></div>
+
+    <footer class="dock">
+      <div class="dock-actions" id="dockActions"></div>
+      <div class="chatbar">
+        <input id="chatInput" type="text" placeholder="跟它说句话…" maxlength="120" autocomplete="off">
+        <button id="chatSend" class="primary small">说</button>
+      </div>
+    </footer>
+
+    <div id="sheet" class="sheet" hidden>
+      <div class="sheet-panel">
+        <h2>设置</h2>
+        <div class="sheet-row"><span>角色名</span><b id="setName">—</b></div>
+        <div class="sheet-row"><span>绑定的 QQ</span><b id="setQQ">—</b></div>
+        <div class="sheet-row"><span>服务器</span><b id="setServer">—</b></div>
+        <div class="sheet-row"><span>连接</span><b id="setConn">—</b></div>
+        <label class="sheet-row"><span>语音朗读</span><input id="setSpeak" type="checkbox" checked></label>
+        <label class="sheet-row"><span>触觉反馈</span><input id="setHaptic" type="checkbox" checked></label>
+        <div class="sheet-btns">
+          <button id="setReconnect">重新连接</button>
+          <button id="setUnbind" class="danger">解绑本机</button>
+          <button id="setClose">关闭</button>
+        </div>
+        <p class="sheet-foot">虚拟身体 v1.0.0 · 虚现互通协议 v1</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============ 离线演示（服务端连不上时自动进入） ============ -->
+  <div id="offlineBanner" class="offline" hidden>
+    <span id="offlineText">离线演示模式：连不上服务器</span>
+    <button id="offlineRetry">重试</button>
+  </div>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
