@@ -129,6 +129,7 @@ struct VBState: Decodable {
 struct VBCharacter: Decodable, Identifiable {
     let id: String?
     let name: String?
+    /// 服务端角色对象里没有 owner 字段（房主在 state.owner 里），保留以便未来演进。
     let ownerQQ: String?
     let level: Int?
     let exp: Int?
@@ -143,18 +144,38 @@ struct VBCharacter: Decodable, Identifiable {
 
     enum CodingKeys: String, CodingKey {
         case id, name, level, exp, emotion, action, bubble, outfit, room, muted, stats
-        case ownerQQ = "owner_qq"
+        case ownerQQ = "owner"
         case expNext = "exp_next"
     }
 }
 
+/// 六项养成数值。
+/// 服务端用浮点保存（例如 30.8，因为每次触摸只加 0.3~1.2），
+/// 所以这里必须是 Double：早先用 Int 会导致整个 bind 响应解码失败，
+/// 客户端只会显示「服务器返回的数据看不懂」。
 struct VBStats: Decodable {
-    let affection: Int?
-    let mood: Int?
-    let energy: Int?
-    let satiety: Int?
-    let clean: Int?
-    let trust: Int?
+    let affection: Double?
+    let mood: Double?
+    let energy: Double?
+    let satiety: Double?
+    let clean: Double?
+    let trust: Double?
+
+    init(affection: Double? = nil, mood: Double? = nil, energy: Double? = nil,
+         satiety: Double? = nil, clean: Double? = nil, trust: Double? = nil) {
+        self.affection = affection
+        self.mood = mood
+        self.energy = energy
+        self.satiety = satiety
+        self.clean = clean
+        self.trust = trust
+    }
+
+    /// 界面显示用的整数（四舍五入，且夹在 0…100）
+    func percent(_ value: Double?) -> Int {
+        guard let value = value else { return 0 }
+        return max(0, min(100, Int(value.rounded())))
+    }
 }
 
 // MARK: - 客户端
