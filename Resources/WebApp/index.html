@@ -8,9 +8,9 @@
 <meta name="apple-mobile-web-app-title" content="虚拟身体">
 <meta name="theme-color" content="#12101c">
 <title>虚拟身体 · 虚现互通</title>
-<link rel="manifest" href="manifest.webmanifest?v=101">
+<link rel="manifest" href="manifest.webmanifest?v=200">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="style.css?v=101">
+<link rel="stylesheet" href="style.css?v=200">
 </head>
 <body>
 <div id="app">
@@ -67,6 +67,7 @@
     <div class="bars" id="bars"></div>
 
     <canvas id="cv"></canvas>
+    <canvas id="cv3d" hidden></canvas>
 
     <div id="bubble" class="bubble" hidden><span></span></div>
     <div id="hint" class="hint">摸它一下试试 · 长按是揉搓 · 往上甩是抛起来</div>
@@ -88,6 +89,17 @@
         <div class="sheet-row"><span>绑定的 QQ</span><b id="setQQ">—</b></div>
         <div class="sheet-row"><span>服务器</span><b id="setServer">—</b></div>
         <div class="sheet-row"><span>连接</span><b id="setConn">—</b></div>
+        <div class="sheet-row" style="display:block">
+          <span style="display:block;margin-bottom:8px">角色外观</span>
+          <div class="look-btns">
+            <button id="lookCanvas" class="look-btn">内置形象</button>
+            <button id="lookImage" class="look-btn">上传立绘</button>
+            <button id="lookModel" class="look-btn">上传 3D 模型</button>
+          </div>
+          <div id="lookStatus" class="look-status"></div>
+          <input id="fileImage" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+          <input id="fileModel" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" hidden>
+        </div>
         <label class="sheet-row"><span>语音朗读</span><input id="setSpeak" type="checkbox" checked></label>
         <label class="sheet-row"><span>触觉反馈</span><input id="setHaptic" type="checkbox" checked></label>
         <div class="sheet-btns">
@@ -95,7 +107,7 @@
           <button id="setUnbind" class="danger">解绑本机</button>
           <button id="setClose">关闭</button>
         </div>
-        <p class="sheet-foot">虚拟身体 v1.0.1 · 虚现互通协议 v1</p>
+        <p class="sheet-foot">虚拟身体 v2.0.0 · 虚现互通协议 v1</p>
       </div>
     </div>
   </main>
@@ -107,8 +119,9 @@
   </div>
 </div>
 <!-- 普通脚本，不是 module：WKWebView 从 file:// 加载时会拦掉 ES module -->
-<script src="creature.js?v=101"></script>
-<script src="app.js?v=101"></script>
+<script src="creature.js?v=200"></script>
+<script src="model3d.js?v=200"></script>
+<script src="app.js?v=200"></script>
 <script>
   // 如果 app.js 没执行（例如被 file:// 的 module 限制拦掉），给用户一个明确提示
   setTimeout(function () {
