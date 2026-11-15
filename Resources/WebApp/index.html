@@ -94,11 +94,13 @@
           <div class="look-btns">
             <button id="lookCanvas" class="look-btn">内置形象</button>
             <button id="lookImage" class="look-btn">上传立绘</button>
-            <button id="lookModel" class="look-btn">上传 3D 模型</button>
+            <button id="lookModel" class="look-btn">导入 3D 模型</button>
+            <button id="lookGen3d" class="look-btn gen">AI 生成 3D</button>
           </div>
           <div id="lookStatus" class="look-status"></div>
           <input id="fileImage" type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
           <input id="fileModel" type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" hidden>
+          <input id="fileGen3d" type="file" accept="image/png,image/jpeg,image/webp" hidden>
         </div>
         <label class="sheet-row"><span>语音朗读</span><input id="setSpeak" type="checkbox" checked></label>
         <label class="sheet-row"><span>触觉反馈</span><input id="setHaptic" type="checkbox" checked></label>
@@ -107,7 +109,7 @@
           <button id="setUnbind" class="danger">解绑本机</button>
           <button id="setClose">关闭</button>
         </div>
-        <p class="sheet-foot">虚拟身体 v2.0.0 · 虚现互通协议 v1</p>
+        <p class="sheet-foot">虚拟身体 v2.1.0 · 虚现互通协议 v1</p>
       </div>
     </div>
   </main>
