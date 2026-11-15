@@ -240,7 +240,7 @@ function drawArm(ctx, side, angle, len, s, t) {
 /**
  * @returns {{headX:number, headY:number}} 头部在画布中的坐标（用于气泡定位）
  */
-export function drawCreature(ctx, o) {
+function drawCreature(ctx, o) {
   const {
     x = 0, y = 0, scale = 1, emotion = "calm", action = "idle",
     t = 0, now = 0, facing = 1, blink = false, outfit = "default", effectTint = null,
@@ -472,7 +472,7 @@ function drawOutfit(ctx, outfit, s, now, emotion) {
 }
 
 /* 小图标角色（绑定页用），复用主绘制 */
-export function drawMiniCreature(ctx, size, now = 0) {
+function drawMiniCreature(ctx, size, now = 0) {
   ctx.clearRect(0, 0, size, size);
   ctx.save();
   ctx.translate(size / 2, size * 0.62);
@@ -482,3 +482,7 @@ export function drawMiniCreature(ctx, size, now = 0) {
   });
   ctx.restore();
 }
+
+
+/* 以普通脚本暴露（不能用 ES module：WKWebView 从 file:// 加载时会拦掉 module） */
+window.VBCreature = { drawCreature: drawCreature, drawMiniCreature: drawMiniCreature };
