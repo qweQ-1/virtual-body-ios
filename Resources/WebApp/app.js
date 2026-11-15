@@ -192,9 +192,18 @@ function setConn(kind, text) {
 
 function setChar(c) {
   if (!c) return;
+  const prevMode = state.char && state.char.renderer;
   state.char = c;
   state.muted = !!c.muted;
   updateHUD();
+  // 服务端记着外观：首次拿到 / 外观变了就同步过来
+  if (c.renderer && (c.renderer !== prevMode || (c.renderer !== "canvas" && !v3.mode && !v3.url))) {
+    const url = c.renderer === "model" ? c.model_url : (c.renderer === "image" ? c.image_url : "");
+    if (c.renderer === "canvas" || url) {
+      if (window.__vbHighlightLook) window.__vbHighlightLook(c.renderer);
+      setRenderer(c.renderer, url);
+    }
+  }
 }
 
 function applyFrame(f) {
@@ -285,6 +294,75 @@ const cv = $("cv");
 const ctx = cv ? cv.getContext("2d") : null;
 const view = { w: 0, h: 0, dpr: 1 };
 const anim = { action: "idle", start: 0, dur: 0, base: null };
+
+/* ---- 3D 渲染（模型 in glb） ---- */
+const cv3d = $("cv3d");
+const v3 = { engine: null, ok: false, trying: false, mode: "canvas", url: "" };
+const M3D = window.VBModel3D || null;
+
+/** 切换渲染模式：canvas（内置 2D）｜image（上传立绘）｜model（glb） */
+async function setRenderer(mode, url) {
+  v3.mode = mode;
+  v3.url = url || "";
+  const want3d = mode === "model";
+  if (cv3d) {
+    cv3d.hidden = !want3d;
+    if (want3d) {
+      // canvas 没有布局尺寸时 WebGL 会渲染成 0×0，这里显式给到视口大小
+      cv3d.style.width = "100%";
+      cv3d.style.height = "100%";
+      cv3d.width = Math.round(window.innerWidth * Math.min(2, window.devicePixelRatio || 1));
+      cv3d.height = Math.round(window.innerHeight * Math.min(2, window.devicePixelRatio || 1));
+    }
+  }
+  if (cv) cv.hidden = want3d && v3.ok;
+  if (!want3d) {
+    if (cv) cv.hidden = false;
+    setLookStatus(v3.url && mode === "image" ? "当前使用：上传的立绘" : "当前使用：内置形象", "ok");
+    return;
+  }
+  setLookStatus("正在加载 3D 模型…");
+  if (!M3D) { setLookStatus("3D 模块没加载（需要联网加载 three.js）", "err"); v3.ok = false; if (cv) cv.hidden = false; cv3d.hidden = true; return; }
+  if (!v3.engine) {
+    v3.engine = new M3D.Model3D(cv3d);
+    const ok = await v3.engine.init();
+    if (!ok) {
+      setLookStatus("这台设备/网络加载不了 three.js，已回落到 2D", "err");
+      cv3d.hidden = true; if (cv) cv.hidden = false; v3.ok = false; return;
+    }
+  }
+  const loaded = await v3.engine.load(absoluteUrl(v3.url));
+  if (!loaded) {
+    setLookStatus("模型加载失败（换一个 glb 试试）", "err");
+    cv3d.hidden = true; if (cv) cv.hidden = false; v3.ok = false; setRenderer("canvas", ""); return;
+  }
+  v3.ok = true;
+  cv3d.hidden = false; if (cv) cv.hidden = true;
+  setLookStatus("3D 模型已加载 ✓ 可以用手指摸它", "ok");
+}
+
+function absoluteUrl(u) {
+  if (!u) return "";
+  if (/^https?:/i.test(u)) return u;
+  return state.base + "/" + String(u).replace(/^\/+/, "");
+}
+
+function setLookStatus(text, kind) {
+  const el = $("lookStatus");
+  if (!el) return;
+  el.textContent = text || "";
+  el.className = "look-status" + (kind ? " " + kind : "");
+}
+
+/** 3D 模式下用射线判断摸到了头还是身体 */
+function region3d(clientX, clientY) {
+  if (v3.ok && v3.engine) {
+    const hit = v3.engine.hitTest(clientX, clientY);
+    if (hit === "head") return "head";
+    if (hit === "body") return "body";
+  }
+  return null;
+}
 let particles = [];
 let blinkAt = performance.now() + 2500;
 let blinkUntil = 0;
@@ -298,8 +376,15 @@ function resize() {
   cv.width = Math.round(r.width * dpr);
   cv.height = Math.round(r.height * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (cv3d && !cv3d.hidden) {
+    cv3d.width = Math.round(r.width * dpr);
+    cv3d.height = Math.round(r.height * dpr);
+  }
 }
-window.addEventListener("resize", resize);
+window.addEventListener("resize", () => {
+  resize();
+  if (v3.ok && v3.engine) v3.engine.resize();
+});
 
 function pose() {
   const c = state.char;
@@ -314,6 +399,8 @@ function pose() {
 }
 
 function playAction(action, dur, emotion) {
+  if (v3.ok && v3.engine) v3.engine.play(action, dur);
+  if (v3.ok && v3.engine && emotion) v3.engine.setEmotion(emotion);
   const persistent = action === "sleep" || action === "sit";
   anim.action = action;
   anim.start = performance.now();
@@ -401,6 +488,7 @@ function frame() {
 
   drawParticles(now);
   positionBubble();
+  if (v3.ok && v3.engine) v3.engine.render();
   requestAnimationFrame(frame);
 }
 
@@ -441,10 +529,11 @@ function norm(px, py) {
   return { x: +(px / Math.max(1, view.w)).toFixed(3), y: +(py / Math.max(1, view.h)).toFixed(3) };
 }
 
-function sendTouch(type, px, py, power) {
+function sendTouch(type, px, py, power, clientX, clientY) {
   if (state.demo || !state.token) { return demoReaction(type, px, py); }
   const n = norm(px, py);
-  const payload = { t: "touch", type, x: n.x, y: n.y, region: regionOf(px, py), power: power || 0.5, ts: Date.now() / 1000 };
+  const region = (clientX != null ? region3d(clientX, clientY) : null) || regionOf(px, py);
+  const payload = { t: "touch", type, x: n.x, y: n.y, region, power: power || 0.5, ts: Date.now() / 1000 };
   if (state.wsOk && state.ws) {
     try { state.ws.send(JSON.stringify(payload)); } catch { }
     return Promise.resolve(null);
@@ -457,7 +546,7 @@ function sendTouch(type, px, py, power) {
 function onDown(e) {
   const p = point(e);
   ptr.down = true; ptr.moved = false; ptr.tossing = false;
-  ptr.x0 = ptr.x = p.x; ptr.y0 = ptr.y = p.y; ptr.t0 = performance.now();
+  ptr.x0 = ptr.x = p.x; ptr.y0 = ptr.y = p.y; ptr.cx = p.cx; ptr.cy = p.cy; ptr.t0 = performance.now();
   hint(false);
   clearTimeout(ptr.longPress);
   clearTimeout(ptr.rubTimer);
@@ -465,10 +554,10 @@ function onDown(e) {
   ptr.longPress = setTimeout(() => {
     if (!ptr.down || ptr.moved) return;
     haptic("medium");
-    sendTouch("rub", ptr.x, ptr.y, 0.45);
+    sendTouch("rub", ptr.x, ptr.y, 0.45, ptr.cx, ptr.cy);
     const rep = () => {
       if (!ptr.down) return;
-      sendTouch("rub", ptr.x, ptr.y, 0.4);
+      sendTouch("rub", ptr.x, ptr.y, 0.4, ptr.cx, ptr.cy);
       ptr.rubTimer = setTimeout(rep, 700);
     };
     ptr.rubTimer = setTimeout(rep, 700);
@@ -481,7 +570,7 @@ function onMove(e) {
   const dx = p.x - ptr.x0, dy = p.y - ptr.y0;
   const dist = Math.hypot(dx, dy);
   if (dist > 10) ptr.moved = true;
-  ptr.x = p.x; ptr.y = p.y;
+  ptr.x = p.x; ptr.y = p.y; ptr.cx = p.cx; ptr.cy = p.cy;
   if (!ptr.moved) return;
 
   const vertical = Math.abs(dy) > Math.abs(dx) * 1.6;
@@ -490,7 +579,7 @@ function onMove(e) {
     if (!ptr.tossing) {
       ptr.tossing = true;
       haptic("heavy");
-      sendTouch("toss", p.x, p.y, Math.min(1, Math.abs(dy) / 200));
+      sendTouch("toss", p.x, p.y, Math.min(1, Math.abs(dy) / 200), p.cx, p.cy);
     }
   } else if (vertical && Math.abs(dy) > 40) {
     // 上下拖动 → 拎起来（视觉跟随）
@@ -501,7 +590,7 @@ function onMove(e) {
     if (now - ptr.lastSend > 320) {
       ptr.lastSend = now;
       haptic("light");
-      sendTouch("pet", p.x, p.y, Math.min(1, Math.abs(dx) / 120));
+      sendTouch("pet", p.x, p.y, Math.min(1, Math.abs(dx) / 120), p.cx, p.cy);
     }
   }
   // 拖动跟随
@@ -522,24 +611,36 @@ function onUp(e) {
   if (!ptr.moved && dist < 14 && held < 600) {
     haptic("light");
     const r = regionOf(p.x, p.y);
-    sendTouch(r === "head" || r === "face" ? "poke" : "tap", p.x, p.y, 0.4);
+    sendTouch(r === "head" || r === "face" ? "poke" : "tap", p.x, p.y, 0.4, p.cx, p.cy);
   } else if (ptr.moved && dist > 60 && held > 420) {
-    sendTouch("drag", p.x, p.y, Math.min(1, dist / 240));
+    sendTouch("drag", p.x, p.y, Math.min(1, dist / 240), p.cx, p.cy);
   } else if (held > 900 && !ptr.moved) {
-    sendTouch("hug", p.x, p.y, 0.6);
+    sendTouch("hug", p.x, p.y, 0.6, p.cx, p.cy);
   }
   ptr.moved = false;
 }
 
 function point(e) {
-  const r = cv.getBoundingClientRect();
-  if (e && e.touches && e.touches[0]) return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
-  if (e && e.changedTouches && e.changedTouches[0]) return { x: e.changedTouches[0].clientX - r.left, y: e.changedTouches[0].clientY - r.top };
-  if (e && e.clientX != null) return { x: e.clientX - r.left, y: e.clientY - r.top };
-  return { x: ptr.x, y: ptr.y };
+  const r = (v3.ok && cv3d ? cv3d : cv).getBoundingClientRect();
+  let cx = ptr.x + r.left, cy = ptr.y + r.top;
+  if (e && e.touches && e.touches[0]) { cx = e.touches[0].clientX; cy = e.touches[0].clientY; }
+  else if (e && e.changedTouches && e.changedTouches[0]) { cx = e.changedTouches[0].clientX; cy = e.changedTouches[0].clientY; }
+  else if (e && e.clientX != null) { cx = e.clientX; cy = e.clientY; }
+  return { x: cx - r.left, y: cy - r.top, cx: cx, cy: cy };
 }
 
 function bindCanvas() {
+  [cv, cv3d].forEach((el) => {
+    if (!el) return;
+    el.addEventListener("touchstart", (e) => { e.preventDefault(); onDown(e); }, { passive: false });
+    el.addEventListener("touchmove", (e) => { e.preventDefault(); onMove(e); }, { passive: false });
+    el.addEventListener("touchend", (e) => { e.preventDefault(); onUp(e); }, { passive: false });
+    el.addEventListener("touchcancel", (e) => { onUp(e); });
+    el.addEventListener("mousedown", onDown);
+    el.addEventListener("mousemove", (e) => { if (ptr.down) onMove(e); });
+    el.addEventListener("mouseup", onUp);
+    el.addEventListener("mouseleave", (e) => { if (ptr.down) onUp(e); });
+  });
   if (!cv) return;
   cv.addEventListener("touchstart", (e) => { e.preventDefault(); onDown(e); }, { passive: false });
   cv.addEventListener("touchmove", (e) => { e.preventDefault(); onMove(e); }, { passive: false });
@@ -742,7 +843,7 @@ async function doBind() {
   try {
     const d = await api("/api/bind", {
       method: "POST", auth: false,
-      body: { code, device: device || "Safari", platform: IS_NATIVE ? "ios" : "web", app_version: "1.0.1" },
+      body: { code, device: device || "Safari", platform: IS_NATIVE ? "ios" : "web", app_version: "2.0.0" },
     });
     state.token = d.token; state.qq = d.qq || ""; state.nick = d.nickname || "";
     store.set(LS.token, d.token); store.set(LS.qq, state.qq); store.set(LS.nick, state.nick);
@@ -835,7 +936,10 @@ function setupRoomDeco() {
 }
 
 function setupSettings() {
-  $("btnSettings").onclick = () => { $("sheet").hidden = false; haptic("light"); };
+  $("btnSettings").onclick = () => {
+    $("sheet").hidden = false; haptic("light");
+    if (window.__vbHighlightLook) window.__vbHighlightLook(v3.mode);
+  };
   $("setClose").onclick = () => { $("sheet").hidden = true; };
   $("sheet").onclick = (e) => { if (e.target.id === "sheet") $("sheet").hidden = true; };
   $("setSpeak").checked = state.speak;
@@ -843,6 +947,65 @@ function setupSettings() {
   $("setSpeak").onchange = (e) => { state.speak = e.target.checked; store.set(LS.speak, state.speak ? "1" : "0"); if (!state.speak) native({ cmd: "stop_speak" }); };
   $("setHaptic").onchange = (e) => { state.haptic = e.target.checked; store.set(LS.haptic, state.haptic ? "1" : "0"); };
   $("setReconnect").onclick = () => { $("sheet").hidden = true; state.wsTries = 0; connectWS(); toast("正在重连…"); };
+  // ---- 角色外观：内置 / 上传立绘 / 上传 3D 模型 ----
+  const btnCanvas = $("lookCanvas"), btnImage = $("lookImage"), btnModel = $("lookModel");
+  const fileImage = $("fileImage"), fileModel = $("fileModel");
+  const highlightLook = (mode) => {
+    [btnCanvas, btnImage, btnModel].forEach((b) => b && b.classList.remove("active"));
+    if (mode === "image" && btnImage) btnImage.classList.add("active");
+    else if (mode === "model" && btnModel) btnModel.classList.add("active");
+    else if (btnCanvas) btnCanvas.classList.add("active");
+  };
+  window.__vbHighlightLook = highlightLook;
+
+  const applyAppearance = async (renderer, url) => {
+    highlightLook(renderer);
+    await setRenderer(renderer, url);
+    if (state.demo || !state.token) return;
+    try {
+      await api("/api/action", {
+        method: "POST",
+        body: { action: "look", args: { renderer: renderer, url: url || "" } },
+      });
+    } catch (e) { /* 本地已生效，服务端失败不阻塞 */ }
+  };
+
+  if (btnCanvas) btnCanvas.onclick = () => { haptic("light"); applyAppearance("canvas", ""); };
+  if (btnImage) btnImage.onclick = () => fileImage && fileImage.click();
+  if (btnModel) btnModel.onclick = () => fileModel && fileModel.click();
+
+  const doUpload = async (file, kind) => {
+    if (!file) return;
+    if (state.demo || !state.token) {
+      setLookStatus("离线模式下不能上传，请先绑定服务器", "err");
+      return;
+    }
+    const sizeMb = file.size / 1024 / 1024;
+    const limit = kind === "model" ? 32 : 8;
+    if (sizeMb > limit) { setLookStatus(`文件太大（${sizeMb.toFixed(1)}MB，上限 ${limit}MB）`, "err"); return; }
+    setLookStatus(`正在上传 ${file.name}…`);
+    try {
+      const fd = new FormData();
+      fd.append("file", file, file.name);
+      const res = await fetch(state.base + "/api/upload", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + state.token },
+        body: fd,
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.message || "上传失败");
+      setLookStatus(`上传成功（${(data.data.size / 1024).toFixed(0)} KB），正在应用…`, "ok");
+      await applyAppearance(data.data.kind === "model" ? "model" : "image", data.data.url);
+      toast(kind === "model" ? "3D 模型已就位" : "立绘已换上", "ok");
+      haptic("success");
+    } catch (e) {
+      setLookStatus("上传失败：" + (e.message || "网络错误"), "err");
+      haptic("error");
+    }
+  };
+  if (fileImage) fileImage.onchange = (e) => { doUpload(e.target.files[0], "image"); e.target.value = ""; };
+  if (fileModel) fileModel.onchange = (e) => { doUpload(e.target.files[0], "model"); e.target.value = ""; };
+
   $("setUnbind").onclick = async () => {
     if (!confirm("解绑本机？需要重新在 QQ 里生成绑定码才能再进来。")) return;
     try { await api("/api/unbind", { method: "POST", body: {} }); } catch { }
