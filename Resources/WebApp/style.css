@@ -248,3 +248,10 @@ canvas#cv3d[hidden] { display: none !important; }
 .look-status { margin-top: 8px; font-size: 12px; color: var(--fg-dim); min-height: 16px; }
 .look-status.ok { color: var(--accent2); }
 .look-status.err { color: var(--danger); }
+
+.look-btn.gen {
+  background: linear-gradient(120deg, #63e6c8, #8f7bff);
+  border-color: transparent; font-weight: 600; color: #10131f;
+}
+.look-btns { flex-wrap: wrap; }
+.look-btn { flex: 1 1 44%; }
