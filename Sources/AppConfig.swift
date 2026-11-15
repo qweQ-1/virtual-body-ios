@@ -24,7 +24,7 @@ enum AppConfig {
     static let defaultServer = "https://samachat.de5.net/pet"
 
     /// 必须与 project.yml 的 MARKETING_VERSION 保持一致
-    static let appVersion: String = "1.0.1"
+    static let appVersion: String = "2.0.0"
 
     /// 平台标识（/api/bind 请求体的 platform 字段）
     static let platform = "ios"
