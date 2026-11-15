@@ -6,7 +6,11 @@
  *   3. 双向互通事件流：App 触摸↔QQ 播报、QQ 说话↔角色在 App 里开口。
  */
 
-import { drawCreature, drawMiniCreature } from "./creature.js";
+// 角色绘制来自 creature.js（普通脚本，通过 window.VBCreature 暴露）。
+// 注意：不要改回 ES module —— WKWebView 从 file:// 加载时会拦掉 module，导致本文件根本不执行。
+// creature.js 是以普通脚本加载的，它的 drawCreature / drawMiniCreature 本身就在全局作用域，
+// 这里**不能**再声明同名的变量（会报 "duplicate variable shadowing a global property"）。
+
 
 /* ============================================================ 配置与存储 */
 
@@ -387,7 +391,7 @@ function frame() {
   const action = currentAction(now);
   const t = anim.action === action && anim.dur ? Math.min(1, (now - anim.start) / anim.dur) : 0;
 
-  lastHead = drawCreature(ctx, {
+  lastHead = VBCreature.drawCreature(ctx, {
     x: p.x, y: p.y, scale: p.scale,
     emotion: (state.char && state.char.emotion) || "calm",
     action,
@@ -549,7 +553,7 @@ function bindCanvas() {
 
 /* ============================================================ 离线演示（本地规则） */
 
-export const DEMO_RULES = {
+const DEMO_RULES = {
   pet: ["唔……好舒服。", "再摸摸嘛。", "嗯～头这里最喜欢了。"],
   poke: ["干嘛呀！", "戳我干嘛～", "别戳啦，痒。"],
   tap: ["嗯？", "我在的。", "怎么了？"],
@@ -719,7 +723,7 @@ function showGate(msg) {
     logo.innerHTML = '<canvas width="288" height="288" style="width:96px;height:96px"></canvas>';
     const c = logo.querySelector("canvas").getContext("2d");
     c.scale(3, 3);
-    const tick = () => drawMiniCreature(c, 96, performance.now());
+    const tick = () => VBCreature.drawMiniCreature(c, 96, performance.now());
     tick();
   }
 }
@@ -738,7 +742,7 @@ async function doBind() {
   try {
     const d = await api("/api/bind", {
       method: "POST", auth: false,
-      body: { code, device: device || "Safari", platform: IS_NATIVE ? "ios" : "web", app_version: "1.0.0" },
+      body: { code, device: device || "Safari", platform: IS_NATIVE ? "ios" : "web", app_version: "1.0.1" },
     });
     state.token = d.token; state.qq = d.qq || ""; state.nick = d.nickname || "";
     store.set(LS.token, d.token); store.set(LS.qq, state.qq); store.set(LS.nick, state.nick);
@@ -860,6 +864,11 @@ async function boot() {
   $("chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
 
   // 演示模式判定：没地址 / 没 token / 服务端不通
+  if (IS_NATIVE && (!state.base || !state.token)) {
+    // 原生壳负责绑定；走到这里说明注入的 VB_CONFIG 没生效，显示明确提示而不是一个空登录框
+    showGate("原生 App 没有把服务器地址/token 传进来（VB_CONFIG 缺失），请在设置里解绑后重新绑定");
+    return;
+  }
   if (!state.base || !state.token) {
     if (state.base && !state.token) {
       try {
@@ -901,4 +910,5 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("sw.js").catch(() => { });
 }
 
+window.VB_BOOTED = true;
 boot();
