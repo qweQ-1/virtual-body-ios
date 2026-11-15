@@ -8,9 +8,9 @@
 <meta name="apple-mobile-web-app-title" content="虚拟身体">
 <meta name="theme-color" content="#12101c">
 <title>虚拟身体 · 虚现互通</title>
-<link rel="manifest" href="manifest.webmanifest">
+<link rel="manifest" href="manifest.webmanifest?v=101">
 <link rel="apple-touch-icon" href="icon.svg">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=101">
 </head>
 <body>
 <div id="app">
@@ -41,6 +41,9 @@
       <button id="gateBtn" class="primary">绑定并进入</button>
       <div id="gateMsg" class="gate-msg"></div>
       <p class="gate-tip">还没有服务端？把 <code>astrbot_plugin_virtual_body</code> 装到 AstrBot 上即可。</p>
+      <p id="jsWarn" class="gate-tip" style="display:none;color:#ff6b81">
+        前端脚本没能加载（页面只是静态空壳）。iOS 原生版请确认 App 内已内置 WebApp；<br>网页版请强制刷新一次。
+      </p>
     </div>
   </section>
 
@@ -92,7 +95,7 @@
           <button id="setUnbind" class="danger">解绑本机</button>
           <button id="setClose">关闭</button>
         </div>
-        <p class="sheet-foot">虚拟身体 v1.0.0 · 虚现互通协议 v1</p>
+        <p class="sheet-foot">虚拟身体 v1.0.1 · 虚现互通协议 v1</p>
       </div>
     </div>
   </main>
@@ -103,6 +106,17 @@
     <button id="offlineRetry">重试</button>
   </div>
 </div>
-<script type="module" src="app.js"></script>
+<!-- 普通脚本，不是 module：WKWebView 从 file:// 加载时会拦掉 ES module -->
+<script src="creature.js?v=101"></script>
+<script src="app.js?v=101"></script>
+<script>
+  // 如果 app.js 没执行（例如被 file:// 的 module 限制拦掉），给用户一个明确提示
+  setTimeout(function () {
+    if (!window.VB_BOOTED) {
+      var el = document.getElementById("jsWarn");
+      if (el) el.style.display = "block";
+    }
+  }, 3000);
+</script>
 </body>
 </html>
