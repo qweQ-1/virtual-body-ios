@@ -354,6 +354,48 @@ function setLookStatus(text, kind) {
   el.className = "look-status" + (kind ? " " + kind : "");
 }
 
+async function doGenerate3d(file) {
+  if (state.demo || !state.token) {
+    setLookStatus("离线模式下不能生成，请先连接服务器", "err");
+    return;
+  }
+  const mb = file.size / 1024 / 1024;
+  if (mb > 16) { setLookStatus(`图片太大（${mb.toFixed(1)}MB，上限 16MB）`, "err"); return; }
+  if (btnGen) btnGen.disabled = true;
+  const t0 = Date.now();
+  const tick = setInterval(() => {
+    const sec = Math.round((Date.now() - t0) / 1000);
+    setLookStatus(`AI 正在把这张图捏成 3D…已等 ${sec} 秒（一般 30~90 秒）`);
+  }, 1000);
+  setLookStatus("正在上传图片…");
+  try {
+    const fd = new FormData();
+    fd.append("file", file, file.name || "input.png");
+    const res = await fetch(state.base + "/api/generate3d", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + state.token },
+      body: fd,
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.message || "生成失败");
+    setLookStatus(`生成成功（${(data.data.size / 1024).toFixed(0)} KB），正在换上…`, "ok");
+    await applyAppearance("model", data.data.url);
+    setLookStatus("3D 角色已就位 ✓ 用手指摸摸它", "ok");
+    toast("3D 角色生成完成", "ok");
+    haptic("success");
+  } catch (err) {
+    const msg = err.message || "网络错误";
+    setLookStatus("生成失败：" + msg, "err");
+    if (/Key|api_key|503/.test(msg)) toast("服务端还没配 3D 生成 Key", "err");
+    haptic("error");
+  } finally {
+    clearInterval(tick);
+    if (btnGen) btnGen.disabled = false;
+  }
+}
+if (fileModel) fileModel.onchange = (e) => { doUpload(e.target.files[0], "model"); e.target.value = ""; };
+
+
 /** 3D 模式下用射线判断摸到了头还是身体 */
 function region3d(clientX, clientY) {
   if (v3.ok && v3.engine) {
@@ -843,7 +885,7 @@ async function doBind() {
   try {
     const d = await api("/api/bind", {
       method: "POST", auth: false,
-      body: { code, device: device || "Safari", platform: IS_NATIVE ? "ios" : "web", app_version: "2.0.0" },
+      body: { code, device: device || "Safari", platform: IS_NATIVE ? "ios" : "web", app_version: "2.1.0" },
     });
     state.token = d.token; state.qq = d.qq || ""; state.nick = d.nickname || "";
     store.set(LS.token, d.token); store.set(LS.qq, state.qq); store.set(LS.nick, state.nick);
@@ -1003,8 +1045,14 @@ function setupSettings() {
       haptic("error");
     }
   };
-  if (fileImage) fileImage.onchange = (e) => { doUpload(e.target.files[0], "image"); e.target.value = ""; };
-  if (fileModel) fileModel.onchange = (e) => { doUpload(e.target.files[0], "model"); e.target.value = ""; };
+  // ---- AI 生成 3D：上传一张图 → 云端生成 → 自动换上 ----
+  const btnGen = $("lookGen3d"), fileGen = $("fileGen3d");
+  if (btnGen) btnGen.onclick = () => fileGen && fileGen.click();
+  if (fileGen) fileGen.onchange = (e) => {
+    const f = e.target.files[0];
+    e.target.value = "";
+    if (f) doGenerate3d(f);
+  };
 
   $("setUnbind").onclick = async () => {
     if (!confirm("解绑本机？需要重新在 QQ 里生成绑定码才能再进来。")) return;
